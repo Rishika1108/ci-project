@@ -1,0 +1,47 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cleanup
+spec:
+  description: >-
+    This task cleans up a workspace by deleting all files
+    so the pipeline always starts from a clean state.
+  workspaces:
+    - name: source
+  steps:
+    - name: remove
+      image: bash:5.1.4
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/usr/bin/env bash
+        echo "Cleaning up workspace..."
+        rm -rf $(workspaces.source.path)/*
+        rm -rf $(workspaces.source.path)/.[!.]*
+        echo "Workspace cleaned."
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: nose
+spec:
+  description: >-
+    This task runs unit tests using nosetests with coverage
+    for the service package.
+  workspaces:
+    - name: source
+  params:
+    - name: args
+      description: Arguments to pass to nosetests
+      type: string
+      default: "-v --with-spec --spec-color"
+  steps:
+    - name: nosetests
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/usr/bin/env bash
+        set -e
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        nosetests $(params.args) --with-coverage --cover-package=service
